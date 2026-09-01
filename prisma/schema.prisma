@@ -185,18 +185,23 @@ model StudentProfile {
 }
 
 model TeacherProfile {
-  id            String    @id @default(cuid())
-  userId        String    @unique
-  user          User      @relation(fields: [userId], references: [id])
-  employeeId    String    @unique
-  departmentId  String?
-  department    Department? @relation(fields: [departmentId], references: [id])
-  designation   String?
-  phoneNumber   String?
-  address       String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  subjects      Subject[]
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id])
+  employeeId        String    @unique
+  departmentId      String?
+  department        Department? @relation(fields: [departmentId], references: [id])
+  designation       String?
+  phoneNumber       String?
+  address           String?
+  dob               DateTime?   // NEW
+  joiningDate       DateTime?   // NEW
+  yearsOfExperience Int?        // NEW
+  profilePhoto      String?     // NEW — stores a URL like /uploads/profile-photos/xxx.jpg
+  documentUrls      String[]    @default([]) // NEW — stores multiple uploaded doc URLs
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  subjects          Subject[]
 }
 
 model Subject {

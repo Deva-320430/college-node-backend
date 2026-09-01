@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { signToken } from '../utils/jwt';
 import { protect, requireRole, type AuthRequest } from '../middleware/auth';
+import { upload } from '../middleware/upload';
 
 const router = Router();
 
@@ -20,6 +21,10 @@ const registerSchema = z.object({
   lastName: z.string().min(1),
   password: z.string().min(6),
   role: z.enum(['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']),
+  dob: z.string().optional(),
+  joiningDate: z.string().optional(),
+  yearsOfExperience: z.string().optional(),
+  phoneNumber: z.string().optional(),
 });
 
 router.post('/login', async (req, res) => {
@@ -93,13 +98,13 @@ router.get('/users', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req
   });
 });
 
-router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req: AuthRequest, res) => {
+router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.fields([{ name: 'profilePhoto', maxCount: 1 },{ name: 'documents', maxCount: 5 },]), async (req: AuthRequest, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: 'Invalid user payload.' });
   }
 
-  const { username, collegeId, email, firstName, lastName, password, role } = parsed.data;
+  const { username, collegeId, email, firstName, lastName, password, role, dob, joiningDate, yearsOfExperience, phoneNumber } = parsed.data;
   const allowedRoles = req.user!.role === 'SUPER_ADMIN'
     ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']
     : ['ADMIN', 'EXAM_CELL', 'TEACHER', 'STUDENT'];
@@ -138,6 +143,25 @@ router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async 
     },
     include: { role: true },
   });
+
+  if (role === 'TEACHER') {
+  const files = req.files as { profilePhoto?: Express.Multer.File[]; documents?: Express.Multer.File[] } | undefined;
+  const profilePhotoPath = files?.profilePhoto?.[0] ? `/uploads/profile-photos/${files.profilePhoto[0].filename}` : null;
+  const documentPaths = (files?.documents ?? []).map((f) => `/uploads/teacher-documents/${f.filename}`);
+
+  await prisma.teacherProfile.create({
+    data: {
+      userId: createdUser.id,
+      employeeId: collegeId, // reuses the College ID so you don't need a separate field
+      phoneNumber: phoneNumber || null,
+      dob: dob ? new Date(dob) : null,
+      joiningDate: joiningDate ? new Date(joiningDate) : null,
+      yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience, 10) : null,
+      profilePhoto: profilePhotoPath,
+      documentUrls: documentPaths,
+    },
+  });
+  }
 
   return res.status(201).json({
     message: 'User created successfully.',
