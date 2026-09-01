@@ -153,6 +153,82 @@ router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async 
   });
 });
 
+const updateUserSchema = z.object({
+  username: z.string().min(3).optional(),
+  collegeId: z.string().min(3).optional(),
+  email: z.string().email().optional(),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']).optional(),
+  isActive: z.boolean().optional(),
+});
+
+router.patch('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req: AuthRequest, res) => {
+  const rawId = req.params.id;
+  const id = typeof rawId === 'string' ? rawId : rawId?.[0];
+  if (!id) return res.status(400).json({ message: 'User ID is required.' });
+
+  const parsed = updateUserSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Invalid user payload.' });
+
+  const targetUser = await prisma.user.findUnique({ where: { id }, include: { role: true } });
+  if (!targetUser) return res.status(404).json({ message: 'User not found.' });
+
+  const allowedRoles = req.user!.role === 'SUPER_ADMIN'
+    ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']
+    : ['ADMIN', 'EXAM_CELL', 'TEACHER', 'STUDENT'];
+
+  if (!allowedRoles.includes(targetUser.role.name)) {
+    return res.status(403).json({ message: 'You are not allowed to edit this role.' });
+  }
+
+  const { username, collegeId, email, firstName, lastName, role, isActive } = parsed.data;
+
+  if (role && !allowedRoles.includes(role)) {
+    return res.status(403).json({ message: 'You are not allowed to assign this role.' });
+  }
+
+  if (username || collegeId || email) {
+    const conflict = await prisma.user.findFirst({
+      where: {
+        id: { not: id },
+        OR: [username ? { username } : undefined, collegeId ? { collegeId } : undefined, email ? { email } : undefined].filter(Boolean) as any,
+      },
+    });
+    if (conflict) return res.status(409).json({ message: 'Another user already has that username, email, or college ID.' });
+  }
+
+  let roleId = targetUser.roleId;
+  if (role) {
+    const roleRecord = await prisma.role.findUnique({ where: { name: role } });
+    if (!roleRecord) return res.status(400).json({ message: 'Invalid role selected.' });
+    roleId = roleRecord.id;
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id },
+    data: {
+      ...(username ? { username } : {}),
+      ...(collegeId ? { collegeId } : {}),
+      ...(email ? { email } : {}),
+      ...(firstName ? { firstName } : {}),
+      ...(lastName ? { lastName } : {}),
+      ...(isActive !== undefined ? { isActive } : {}),
+      roleId,
+    },
+    include: { role: true },
+  });
+
+  return res.json({
+    message: 'User updated successfully.',
+    user: {
+      id: updatedUser.id, collegeId: updatedUser.collegeId, username: updatedUser.username,
+      email: updatedUser.email, firstName: updatedUser.firstName, lastName: updatedUser.lastName,
+      role: updatedUser.role.name, isActive: updatedUser.isActive,
+    },
+  });
+});
+
 router.delete('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req: AuthRequest, res) => {
   const rawId = req.params.id;
   const id = typeof rawId === 'string' ? rawId : rawId?.[0];
