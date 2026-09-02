@@ -73,6 +73,11 @@ model User {
   joiningDate      DateTime?   // NEW
   profilePhoto     String?     // NEW
   documentUrls     String[]    @default([]) // NEW
+  address          String?       // NEW — all roles
+  salary           Float?        // NEW — Teacher/Exam Cell/Admin only
+  departmentId     String?       // NEW — Teacher/Exam Cell/Admin only
+  department       Department?   @relation(fields: [departmentId], references: [id])
+  yearsOfExperience Int?         // NEW — Teacher/Exam Cell/Admin only
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -94,6 +99,7 @@ model Department {
   students  StudentProfile[]
   courses   Course[]
   teachers  TeacherProfile[]
+  staff     User[]       // NEW
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 }
@@ -198,7 +204,6 @@ model TeacherProfile {
   department        Department? @relation(fields: [departmentId], references: [id])
   designation       String?
   address           String?
-  yearsOfExperience Int?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   subjects          Subject[]

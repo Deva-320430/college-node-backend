@@ -25,6 +25,9 @@ const registerSchema = z.object({
   joiningDate: z.string().optional(),
   yearsOfExperience: z.string().optional(),
   phoneNumber: z.string().optional(),
+  address: z.string().optional(),      // NEW
+  salary: z.string().optional(),       // NEW
+  departmentId: z.string().optional(), // NEW
 });
 
 router.post('/login', async (req, res) => {
@@ -78,7 +81,7 @@ router.get('/users', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req
 
   // after
   const users = await prisma.user.findMany({
-    include: { role: true, teacherProfile: true },
+    include: { role: true, department: true },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -100,11 +103,21 @@ router.get('/users', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req
       joiningDate: user.joiningDate,
       profilePhoto: user.profilePhoto,
       documentUrls: user.documentUrls,
-      yearsOfExperience: user.teacherProfile?.yearsOfExperience ?? null,
+      address: user.address,
+      salary: user.salary,
+      department: user.department?.name ?? null,
+      yearsOfExperience: user.yearsOfExperience,
     })),
   });
 });
 
+router.get('/departments', protect, async (_req: AuthRequest, res) => {
+  const departments = await prisma.department.findMany({
+    select: { id: true, name: true, code: true },
+    orderBy: { name: 'asc' },
+  });
+  return res.json({ departments });
+});
 
 router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.fields([{ name: 'profilePhoto', maxCount: 1 },{ name: 'documents', maxCount: 5 },]), async (req: AuthRequest, res) => {
   const parsed = registerSchema.safeParse(req.body);
@@ -112,7 +125,8 @@ router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.
     return res.status(400).json({ message: 'Invalid user payload.' });
   }
 
-  const { username, collegeId, email, firstName, lastName, password, role, dob, joiningDate, yearsOfExperience, phoneNumber } = parsed.data;
+  const { username, collegeId, email, firstName, lastName, password, role, dob, joiningDate, yearsOfExperience, phoneNumber, address, salary, departmentId } = parsed.data;
+  const staffRoles = ['TEACHER', 'EXAM_CELL', 'ADMIN'];
   const allowedRoles = req.user!.role === 'SUPER_ADMIN'
     ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']
     : ['ADMIN', 'EXAM_CELL', 'TEACHER', 'STUDENT'];
@@ -143,6 +157,7 @@ router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.
   const profilePhotoPath = files?.profilePhoto?.[0] ? `/uploads/profile-photos/${files.profilePhoto[0].filename}` : null;
   const documentPaths = (files?.documents ?? []).map((f) => `/uploads/teacher-documents/${f.filename}`);
 
+  // after
   const createdUser = await prisma.user.create({
     data: {
       username,
@@ -158,8 +173,12 @@ router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.
       joiningDate: joiningDate ? new Date(joiningDate) : null,
       profilePhoto: profilePhotoPath,
       documentUrls: documentPaths,
+      address: address || null,
+      salary: staffRoles.includes(role) && salary ? parseFloat(salary) : null,
+      departmentId: staffRoles.includes(role) && departmentId ? departmentId : null,
+      yearsOfExperience: staffRoles.includes(role) && yearsOfExperience ? parseInt(yearsOfExperience, 10) : null,
     },
-    include: { role: true },
+    include: { role: true, department: true },
   });
 
   if (role === 'TEACHER') {
@@ -167,7 +186,6 @@ router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.
       data: {
         userId: createdUser.id,
         employeeId: collegeId,
-        yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience, 10) : null,
       },
     });
   }
