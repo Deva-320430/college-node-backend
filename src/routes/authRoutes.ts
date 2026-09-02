@@ -76,8 +76,9 @@ router.get('/users', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req
     ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']
     : ['ADMIN', 'EXAM_CELL', 'TEACHER', 'STUDENT'];
 
+  // after
   const users = await prisma.user.findMany({
-    include: { role: true },
+    include: { role: true, teacherProfile: true },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -94,9 +95,16 @@ router.get('/users', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req
       role: user.role.name,
       isActive: user.isActive,
       createdAt: user.createdAt,
+      phoneNumber: user.phoneNumber,
+      dob: user.dob,
+      joiningDate: user.joiningDate,
+      profilePhoto: user.profilePhoto,
+      documentUrls: user.documentUrls,
+      yearsOfExperience: user.teacherProfile?.yearsOfExperience ?? null,
     })),
   });
 });
+
 
 router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.fields([{ name: 'profilePhoto', maxCount: 1 },{ name: 'documents', maxCount: 5 },]), async (req: AuthRequest, res) => {
   const parsed = registerSchema.safeParse(req.body);
@@ -130,6 +138,11 @@ router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.
 
   const passwordHash = await bcrypt.hash(password, 10);
 
+  // after
+  const files = req.files as { profilePhoto?: Express.Multer.File[]; documents?: Express.Multer.File[] } | undefined;
+  const profilePhotoPath = files?.profilePhoto?.[0] ? `/uploads/profile-photos/${files.profilePhoto[0].filename}` : null;
+  const documentPaths = (files?.documents ?? []).map((f) => `/uploads/teacher-documents/${f.filename}`);
+
   const createdUser = await prisma.user.create({
     data: {
       username,
@@ -140,27 +153,23 @@ router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.
       passwordHash,
       roleId: roleRecord.id,
       isActive: true,
+      phoneNumber: phoneNumber || null,
+      dob: dob ? new Date(dob) : null,
+      joiningDate: joiningDate ? new Date(joiningDate) : null,
+      profilePhoto: profilePhotoPath,
+      documentUrls: documentPaths,
     },
     include: { role: true },
   });
 
   if (role === 'TEACHER') {
-  const files = req.files as { profilePhoto?: Express.Multer.File[]; documents?: Express.Multer.File[] } | undefined;
-  const profilePhotoPath = files?.profilePhoto?.[0] ? `/uploads/profile-photos/${files.profilePhoto[0].filename}` : null;
-  const documentPaths = (files?.documents ?? []).map((f) => `/uploads/teacher-documents/${f.filename}`);
-
-  await prisma.teacherProfile.create({
-    data: {
-      userId: createdUser.id,
-      employeeId: collegeId, // reuses the College ID so you don't need a separate field
-      phoneNumber: phoneNumber || null,
-      dob: dob ? new Date(dob) : null,
-      joiningDate: joiningDate ? new Date(joiningDate) : null,
-      yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience, 10) : null,
-      profilePhoto: profilePhotoPath,
-      documentUrls: documentPaths,
-    },
-  });
+    await prisma.teacherProfile.create({
+      data: {
+        userId: createdUser.id,
+        employeeId: collegeId,
+        yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience, 10) : null,
+      },
+    });
   }
 
   return res.status(201).json({
@@ -188,7 +197,7 @@ const updateUserSchema = z.object({
 });
 
 router.patch('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req: AuthRequest, res) => {
-  const rawId = req.params.id;
+  const rawId = req.params.id; 
   const id = typeof rawId === 'string' ? rawId : rawId?.[0];
   if (!id) return res.status(400).json({ message: 'User ID is required.' });
 

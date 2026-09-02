@@ -34,8 +34,15 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
-
+// after
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(path.join(__dirname, '..', 'uploads')),
+);
 app.use((req, res) => {
   res.status(404).json({
     ok: false,
