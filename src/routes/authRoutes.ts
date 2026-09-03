@@ -21,11 +21,11 @@ const registerSchema = z.object({
   lastName: z.string().min(1),
   password: z.string().min(6),
   role: z.enum(['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']),
-  dob: z.string().optional(),
-  joiningDate: z.string().optional(),
+  dob: z.string().min(8),
+  joiningDate: z.string().min(8),
   yearsOfExperience: z.string().optional(),
-  phoneNumber: z.string().optional(),
-  address: z.string().optional(),      // NEW
+  phoneNumber: z.string().min(10),
+  address: z.string(),      // NEW
   salary: z.string().optional(),       // NEW
   departmentId: z.string().optional(), // NEW
 });
@@ -70,6 +70,13 @@ router.post('/login', async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role.name,
+      dob: user.dob,
+      joiningDate: user.joiningDate,
+      yearsOfExperience: user.yearsOfExperience,
+      phoneNumber: user.phoneNumber,
+      address: user.address,
+      salary: user.salary,
+      departmentId: user.departmentId,
     },
   });
 });
@@ -212,6 +219,13 @@ const updateUserSchema = z.object({
   lastName: z.string().min(1).optional(),
   role: z.enum(['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']).optional(),
   isActive: z.boolean().optional(),
+  dob: z.string().min(8).optional(),
+  joiningDate: z.string().min(8).optional(),
+  yearsOfExperience: z.string().min(3).optional(),
+  phoneNumber: z.string().min(10).optional(),
+  address: z.string().optional(),      // NEW
+  salary: z.string().optional(),       // NEW
+  departmentId: z.string().optional(), // NEW
 });
 
 router.patch('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req: AuthRequest, res) => {
@@ -233,7 +247,7 @@ router.patch('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), asyn
     return res.status(403).json({ message: 'You are not allowed to edit this role.' });
   }
 
-  const { username, collegeId, email, firstName, lastName, role, isActive } = parsed.data;
+  const { username, collegeId, email, firstName, lastName, role, isActive, dob, joiningDate, yearsOfExperience, phoneNumber, address, salary, departmentId } = parsed.data;
 
   if (role && !allowedRoles.includes(role)) {
     return res.status(403).json({ message: 'You are not allowed to assign this role.' });
@@ -265,6 +279,13 @@ router.patch('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), asyn
       ...(firstName ? { firstName } : {}),
       ...(lastName ? { lastName } : {}),
       ...(isActive !== undefined ? { isActive } : {}),
+      ...(dob ? { dob: new Date(dob) } : {}),
+      ...(joiningDate ? { joiningDate: new Date(joiningDate) } : {}),
+      ...(yearsOfExperience ? { yearsOfExperience: parseInt(yearsOfExperience, 10) } : {}),
+      ...(phoneNumber ? { phoneNumber } : {}),
+      ...(address ? { address } : {}),
+      ...(salary ? { salary: parseFloat(salary) } : {}),
+      ...(departmentId ? { departmentId } : {}),
       roleId,
     },
     include: { role: true },
@@ -275,7 +296,9 @@ router.patch('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), asyn
     user: {
       id: updatedUser.id, collegeId: updatedUser.collegeId, username: updatedUser.username,
       email: updatedUser.email, firstName: updatedUser.firstName, lastName: updatedUser.lastName,
-      role: updatedUser.role.name, isActive: updatedUser.isActive,
+      role: updatedUser.role.name, isActive: updatedUser.isActive, dob: updatedUser.dob, joiningDate: updatedUser.joiningDate, 
+      yearsOfExperience: updatedUser.yearsOfExperience, phoneNumber: updatedUser.phoneNumber, address: updatedUser.address, salary: updatedUser.salary, 
+      departmentId: updatedUser.departmentId,
     },
   });
 });
