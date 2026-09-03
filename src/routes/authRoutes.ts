@@ -129,7 +129,7 @@ router.get('/departments', protect, async (_req: AuthRequest, res) => {
 router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.fields([{ name: 'profilePhoto', maxCount: 1 },{ name: 'documents', maxCount: 5 },]), async (req: AuthRequest, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ message: 'Invalid user payload.' });
+    return res.status(400).json({ message: 'please fill the all fields.' });
   }
 
   const { username, collegeId, email, firstName, lastName, password, role, dob, joiningDate, yearsOfExperience, phoneNumber, address, salary, departmentId } = parsed.data;
