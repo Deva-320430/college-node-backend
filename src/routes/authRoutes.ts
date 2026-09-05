@@ -25,9 +25,10 @@ const registerSchema = z.object({
   joiningDate: z.string().min(8),
   yearsOfExperience: z.string().optional(),
   phoneNumber: z.string().min(10),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),  // NEW
+  religion: z.string().optional(),                          // NEW
   address: z.string(),      // NEW
   salary: z.string().optional(),       // NEW
-  departmentId: z.string().optional(), // NEW
 });
 
 router.post('/login', async (req, res) => {
@@ -74,9 +75,10 @@ router.post('/login', async (req, res) => {
       joiningDate: user.joiningDate,
       yearsOfExperience: user.yearsOfExperience,
       phoneNumber: user.phoneNumber,
+      gender: user.gender,
+      religion: user.religion,
       address: user.address,
       salary: user.salary,
-      departmentId: user.departmentId,
     },
   });
 });
@@ -88,7 +90,7 @@ router.get('/users', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req
 
   // after
   const users = await prisma.user.findMany({
-    include: { role: true, department: true },
+    include: { role: true, teacherProfile: { include: { department: true } } },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -111,19 +113,15 @@ router.get('/users', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req
       profilePhoto: user.profilePhoto,
       documentUrls: user.documentUrls,
       address: user.address,
+      gender: user.gender,
+      religion: user.religion,
       salary: user.salary,
-      department: user.department?.name ?? null,
       yearsOfExperience: user.yearsOfExperience,
+      department: user.teacherProfile?.department
+        ? `${user.teacherProfile.department.code} — ${user.teacherProfile.department.name}`
+        : null,
     })),
   });
-});
-
-router.get('/departments', protect, async (_req: AuthRequest, res) => {
-  const departments = await prisma.department.findMany({
-    select: { id: true, name: true, code: true },
-    orderBy: { name: 'asc' },
-  });
-  return res.json({ departments });
 });
 
 router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.fields([{ name: 'profilePhoto', maxCount: 1 },{ name: 'documents', maxCount: 5 },]), async (req: AuthRequest, res) => {
@@ -132,8 +130,7 @@ router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.
     return res.status(400).json({ message: 'please fill the all fields.' });
   }
 
-  const { username, collegeId, email, firstName, lastName, password, role, dob, joiningDate, yearsOfExperience, phoneNumber, address, salary, departmentId } = parsed.data;
-  const staffRoles = ['TEACHER', 'EXAM_CELL', 'ADMIN'];
+  const { username, collegeId, email, firstName, lastName, password, role, dob, joiningDate, yearsOfExperience, phoneNumber, gender, religion, address, salary } = parsed.data;  const staffRoles = ['TEACHER', 'EXAM_CELL', 'ADMIN'];
   const allowedRoles = req.user!.role === 'SUPER_ADMIN'
     ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']
     : ['ADMIN', 'EXAM_CELL', 'TEACHER', 'STUDENT'];
@@ -181,11 +178,12 @@ router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.
       profilePhoto: profilePhotoPath,
       documentUrls: documentPaths,
       address: address || null,
+      gender: gender || null,
+      religion: religion || null,
       salary: staffRoles.includes(role) && salary ? parseFloat(salary) : null,
-      departmentId: staffRoles.includes(role) && departmentId ? departmentId : null,
       yearsOfExperience: staffRoles.includes(role) && yearsOfExperience ? parseInt(yearsOfExperience, 10) : null,
     },
-    include: { role: true, department: true },
+    include: { role: true, },
   });
 
   if (role === 'TEACHER') {
@@ -223,9 +221,10 @@ const updateUserSchema = z.object({
   joiningDate: z.string().min(8).optional(),
   yearsOfExperience: z.string().min(3).optional(),
   phoneNumber: z.string().min(10).optional(),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),  // NEW
+  religion: z.string().optional(),                          // NEW
   address: z.string().optional(),      // NEW
   salary: z.string().optional(),       // NEW
-  departmentId: z.string().optional(), // NEW
 });
 
 router.patch('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req: AuthRequest, res) => {
@@ -247,8 +246,7 @@ router.patch('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), asyn
     return res.status(403).json({ message: 'You are not allowed to edit this role.' });
   }
 
-  const { username, collegeId, email, firstName, lastName, role, isActive, dob, joiningDate, yearsOfExperience, phoneNumber, address, salary, departmentId } = parsed.data;
-
+  const { username, collegeId, email, firstName, lastName, role, isActive, dob, joiningDate, yearsOfExperience, phoneNumber, gender, religion, address, salary } = parsed.data;
   if (role && !allowedRoles.includes(role)) {
     return res.status(403).json({ message: 'You are not allowed to assign this role.' });
   }
@@ -284,8 +282,9 @@ router.patch('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), asyn
       ...(yearsOfExperience ? { yearsOfExperience: parseInt(yearsOfExperience, 10) } : {}),
       ...(phoneNumber ? { phoneNumber } : {}),
       ...(address ? { address } : {}),
+      ...(gender ? { gender } : {}),
+      ...(religion ? { religion } : {}),
       ...(salary ? { salary: parseFloat(salary) } : {}),
-      ...(departmentId ? { departmentId } : {}),
       roleId,
     },
     include: { role: true },
@@ -297,8 +296,7 @@ router.patch('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), asyn
       id: updatedUser.id, collegeId: updatedUser.collegeId, username: updatedUser.username,
       email: updatedUser.email, firstName: updatedUser.firstName, lastName: updatedUser.lastName,
       role: updatedUser.role.name, isActive: updatedUser.isActive, dob: updatedUser.dob, joiningDate: updatedUser.joiningDate, 
-      yearsOfExperience: updatedUser.yearsOfExperience, phoneNumber: updatedUser.phoneNumber, address: updatedUser.address, salary: updatedUser.salary, 
-      departmentId: updatedUser.departmentId,
+      yearsOfExperience: updatedUser.yearsOfExperience, phoneNumber: updatedUser.phoneNumber, gender: updatedUser.gender, religion: updatedUser.religion, address: updatedUser.address, salary: updatedUser.salary,
     },
   });
 });

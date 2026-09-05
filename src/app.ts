@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/authRoutes';
 import studentRoutes from './routes/studentRoutes';
+import departmentRoutes from './routes/departmentRoutes';
 import path from 'path';
 
 const app = express();
@@ -34,6 +35,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
+app.use('/api/departments', departmentRoutes);
 // after
 app.use(
   '/uploads',
