@@ -5,6 +5,9 @@ import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/authRoutes';
 import studentRoutes from './routes/studentRoutes';
 import departmentRoutes from './routes/departmentRoutes';
+import courseRoutes from './routes/courseRoutes';
+import syllabusRoutes from './routes/syllabusRoutes';
+import feeRoutes from './routes/feeRoutes';
 import path from 'path';
 
 const app = express();
@@ -36,6 +39,9 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/departments', departmentRoutes);
+app.use('/api/courses', courseRoutes);
+app.use('/api/syllabus', syllabusRoutes);
+app.use('/api/fees', feeRoutes);
 // after
 app.use(
   '/uploads',

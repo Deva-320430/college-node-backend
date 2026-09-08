@@ -56,7 +56,7 @@ model Role {
 
 model User {
   id               String    @id @default(cuid())
-  collegeId        String    @unique
+  collegeId        String
   username         String    @unique
   email            String    @unique
   passwordHash     String
@@ -75,6 +75,9 @@ model User {
   documentUrls     String[]    @default([]) // NEW
   gender           Gender?     // NEW — all roles
   religion         String?     // NEW — all roles
+  maritalStatus    String?       // NEW — Teacher/Exam Cell/Admin only
+  partnerName      String?       // NEW — Teacher/Exam Cell/Admin only (when married)
+  partnerOccupation String?      // NEW — Teacher/Exam Cell/Admin only (when married)
   address          String?       // NEW — all roles
   salary           Float?        // NEW — Teacher/Exam Cell/Admin only
   departmentId     String?       // NEW — Teacher/Exam Cell/Admin only
@@ -101,9 +104,19 @@ model Department {
   students  StudentProfile[]
   courses   Course[]
   teachers  TeacherProfile[]
+  subjects  Subject[]
   staff     User[]       // NEW
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
+}
+
+model Regulation {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  subjects  Subject[]
+  students  StudentProfile[] // NEW — a student's course regulation
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 model Course {
@@ -111,8 +124,8 @@ model Course {
   name        String
   code        String          @unique
   duration    Int
-  departmentId String
-  department  Department      @relation(fields: [departmentId], references: [id])
+  departments Department[]
+  teachers    TeacherProfile[]
   students    StudentProfile[]
   subjects    Subject[]
   createdAt   DateTime        @default(now())
@@ -162,13 +175,21 @@ model StudentProfile {
   fatherName             String?
   motherName             String?
   guardianName           String?
+  fatherOccupation       String?   // NEW
+  motherOccupation       String?   // NEW
+  guardianOccupation     String?   // NEW
   parentPhone            String?
   parentEmail            String?
   parentOccupation       String?
+  identificationMark1    String?   // NEW — e.g. a mole
+  identificationMark2    String?   // NEW
+  isRegular              Boolean   @default(true) // NEW — Regular / Irregular
   departmentId           String?
   department             Department?     @relation(fields: [departmentId], references: [id])
   courseId               String?
   course                 Course?         @relation(fields: [courseId], references: [id])
+  regulationId           String?
+  regulation             Regulation?     @relation(fields: [regulationId], references: [id]) // NEW — Student only
   batch                  String?
   admissionYear          Int?
   currentSemesterId      String?
@@ -204,6 +225,8 @@ model TeacherProfile {
   employeeId        String    @unique
   departmentId      String?
   department        Department? @relation(fields: [departmentId], references: [id])
+  courseId          String?     // NEW — Teacher only
+  course            Course?     @relation(fields: [courseId], references: [id])
   designation       String?
   address           String?
   createdAt         DateTime  @default(now())
@@ -213,9 +236,15 @@ model TeacherProfile {
 
 model Subject {
   id            String    @id @default(cuid())
-  code          String    @unique
+  year          String    @default("")
+  semester      String    @default("")
+  code          String
   name          String
   credits       Int
+  regulationId  String
+  regulation    Regulation @relation(fields: [regulationId], references: [id])
+  departmentId  String
+  department    Department @relation(fields: [departmentId], references: [id])
   courseId      String?
   course        Course?   @relation(fields: [courseId], references: [id])
   teacherId     String?
@@ -224,6 +253,8 @@ model Subject {
   attendance    Attendance[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  @@unique([code, regulationId, departmentId])
 }
 
 model Enrollment {

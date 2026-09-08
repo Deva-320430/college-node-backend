@@ -1,0 +1,1 @@
+{"root":["./src/app.ts","./src/server.ts","./src/config/env.ts","./src/lib/prisma.ts","./src/middleware/auth.ts","./src/middleware/upload.ts","./src/routes/authRoutes.ts","./src/routes/courseRoutes.ts","./src/routes/departmentRoutes.ts","./src/routes/studentRoutes.ts","./src/utils/audit.ts","./src/utils/jwt.ts"],"version":"5.9.3"}
