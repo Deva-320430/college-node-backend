@@ -20,7 +20,7 @@ const registerSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   password: z.string().min(6),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']),
+  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT', 'ACCOUNTANT']),
   dob: z.string().min(8),
   joiningDate: z.string().min(8),
   yearsOfExperience: z.string().optional(),
@@ -105,7 +105,7 @@ router.post('/login', async (req, res) => {
 
 router.get('/users', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req: AuthRequest, res) => {
   const allowedRoles = req.user!.role === 'SUPER_ADMIN'
-    ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']
+    ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT', 'ACCOUNTANT']
     : ['ADMIN', 'EXAM_CELL', 'TEACHER', 'STUDENT'];
 
   // after
@@ -181,7 +181,7 @@ router.post('/register', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'),upload.
   const { username, collegeId, email, firstName, lastName, password, role, dob, joiningDate, yearsOfExperience, phoneNumber, gender, religion, maritalStatus, partnerName, partnerOccupation, departmentId, courseId, regulationId, address, salary, rollNumber, fatherName, motherName, guardianName, fatherOccupation, motherOccupation, guardianOccupation, identificationMark1, identificationMark2, isRegular } = parsed.data;
   const staffRoles = ['TEACHER', 'EXAM_CELL', 'ADMIN'];
   const allowedRoles = req.user!.role === 'SUPER_ADMIN'
-    ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']
+    ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT', 'ACCOUNTANT']
     : ['ADMIN', 'EXAM_CELL', 'TEACHER', 'STUDENT'];
 
   if (!allowedRoles.includes(role)) {
@@ -321,7 +321,7 @@ const updateUserSchema = z.object({
   email: z.string().email().optional(),
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']).optional(),
+  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT', 'ACCOUNTANT']).optional(),
   isActive: z.boolean().optional(),
   dob: z.string().min(8).optional(),
   joiningDate: z.string().min(8).optional(),
@@ -351,18 +351,24 @@ const updateUserSchema = z.object({
 });
 
 router.patch('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), async (req: AuthRequest, res) => {
-  const rawId = req.params.id; 
+  const rawId = req.params.id;
   const id = typeof rawId === 'string' ? rawId : rawId?.[0];
   if (!id) return res.status(400).json({ message: 'User ID is required.' });
 
-  const parsed = updateUserSchema.safeParse(req.body);
+  // Strip empty strings so optional Zod fields with min() constraints aren't rejected
+  const cleaned: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(req.body as Record<string, unknown>)) {
+    cleaned[k] = typeof v === 'string' && v.trim() === '' ? undefined : v;
+  }
+
+  const parsed = updateUserSchema.safeParse(cleaned);
   if (!parsed.success) return res.status(400).json({ message: 'Invalid user payload.' });
 
   const targetUser = await prisma.user.findUnique({ where: { id }, include: { role: true } });
   if (!targetUser) return res.status(404).json({ message: 'User not found.' });
 
   const allowedRoles = req.user!.role === 'SUPER_ADMIN'
-    ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']
+    ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT', 'ACCOUNTANT']
     : ['ADMIN', 'EXAM_CELL', 'TEACHER', 'STUDENT'];
 
   if (!allowedRoles.includes(targetUser.role.name)) {
@@ -534,7 +540,7 @@ router.delete('/users/:id', protect, requireRole('SUPER_ADMIN', 'CHAIRMAN'), asy
   }
 
   const allowedRoles = req.user!.role === 'SUPER_ADMIN'
-    ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT']
+    ? ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'EXAM_CELL', 'TEACHER', 'STUDENT', 'ACCOUNTANT']
     : ['ADMIN', 'EXAM_CELL', 'TEACHER', 'STUDENT'];
 
   if (!allowedRoles.includes(targetUser.role.name)) {

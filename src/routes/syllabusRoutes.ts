@@ -130,6 +130,7 @@ router.get('/:regulationId/subjects', protect, requireRole(...allowedRoles), asy
 
 const createSubjectSchema = z.object({
   departmentId: z.string().min(1, 'Please select a department.'),
+  courseId: z.string().optional(),
   year: z
     .string()
     .trim()
@@ -159,7 +160,13 @@ router.post('/:regulationId/subjects', protect, requireRole(...allowedRoles), as
     return res.status(400).json({ message: parsed.error.issues[0]?.message || 'Invalid subject payload.' });
   }
 
-  const { departmentId, year, semester, code, name, credits } = parsed.data;
+  const { departmentId, courseId, year, semester, code, name, credits } = parsed.data;
+
+  // Validate the course exists when provided
+  if (courseId) {
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) return res.status(404).json({ message: 'Course not found.' });
+  }
 
   const regulation = await prisma.regulation.findUnique({ where: { id: regulationId } });
   if (!regulation) return res.status(404).json({ message: 'Regulation not found.' });
@@ -179,7 +186,7 @@ router.post('/:regulationId/subjects', protect, requireRole(...allowedRoles), as
   let subject;
   try {
     subject = await prisma.subject.create({
-      data: { year, semester, code, name, credits, regulationId, departmentId },
+      data: { year, semester, code, name, credits, regulationId, departmentId, ...(courseId ? { courseId } : {}) },
       include: {
         department: { select: { id: true, code: true, name: true } },
         regulation: { select: { id: true, name: true } },
@@ -202,6 +209,7 @@ router.post('/:regulationId/subjects', protect, requireRole(...allowedRoles), as
 
 const updateSubjectSchema = z.object({
   departmentId: z.string().min(1, 'Please select a department.').optional(),
+  courseId: z.string().optional(),
   year: z
     .string()
     .trim()
@@ -227,9 +235,14 @@ router.patch('/subjects/:id', protect, requireRole(...allowedRoles), async (req:
   const parsed = updateSubjectSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || 'Invalid subject payload.' });
 
-  const { departmentId, year, semester, code, name, credits } = parsed.data;
-  if (!departmentId && !year && !semester && !code && !name && credits === undefined) {
+  const { departmentId, courseId, year, semester, code, name, credits } = parsed.data;
+  if (!departmentId && !year && !semester && !code && !name && !courseId && credits === undefined) {
     return res.status(400).json({ message: 'Nothing to update.' });
+  }
+
+  if (courseId) {
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) return res.status(404).json({ message: 'Course not found.' });
   }
 
   const existing = await prisma.subject.findUnique({
@@ -258,6 +271,7 @@ router.patch('/subjects/:id', protect, requireRole(...allowedRoles), async (req:
       where: { id: subjectId },
       data: {
         ...(departmentId ? { departmentId } : {}),
+        ...(courseId ? { courseId } : {}),
         ...(year ? { year } : {}),
         ...(semester ? { semester } : {}),
         ...(code ? { code } : {}),

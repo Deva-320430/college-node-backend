@@ -14,6 +14,7 @@ enum UserRole {
   EXAM_CELL
   TEACHER
   STUDENT
+  ACCOUNTANT
 }
 
 enum Gender {

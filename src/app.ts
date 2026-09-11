@@ -8,6 +8,7 @@ import departmentRoutes from './routes/departmentRoutes';
 import courseRoutes from './routes/courseRoutes';
 import syllabusRoutes from './routes/syllabusRoutes';
 import feeRoutes from './routes/feeRoutes';
+import attendanceRoutes from './routes/attendanceRoutes';
 import path from 'path';
 
 const app = express();
@@ -19,9 +20,10 @@ app.use(express.urlencoded({ extended: true }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
+  message: { ok: false, message: 'Too many requests, please try again later.' },
 });
 app.use(limiter);
 
@@ -42,6 +44,7 @@ app.use('/api/departments', departmentRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/syllabus', syllabusRoutes);
 app.use('/api/fees', feeRoutes);
+app.use('/api/attendance', attendanceRoutes);
 // after
 app.use(
   '/uploads',

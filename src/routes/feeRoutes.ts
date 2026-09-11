@@ -5,7 +5,7 @@ import { protect, requireRole, type AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-const staffRoles = ['SUPER_ADMIN', 'CHAIRMAN', 'ADMIN', 'EXAM_CELL'];
+const staffRoles = ['SUPER_ADMIN', 'CHAIRMAN', 'ADMIN', 'EXAM_CELL', 'ACCOUNTANT'];
 
 const feeInclude = {
   student: {
